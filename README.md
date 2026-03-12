@@ -1,3 +1,12 @@
+---
+title: Attend Backend
+emoji: 🏢
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # AttendAI — AI Face Recognition Attendance System
 
 > **Production-ready** attendance management system using live face recognition via OpenCV + DeepFace (ArcFace), FastAPI backend, PostgreSQL database, and a React/TailwindCSS admin dashboard.
