@@ -1,26 +1,34 @@
-# Deploying AttendAI to production
+# Deploying AttendAI (Free Cloud Hosting)
 
-Follow these steps to take AttendAI from your local machine to the cloud.
+Follow these steps to take AttendAI live for free.
 
 ## 1. Frontend Deployment (Vercel)
-Vercel is the best home for React/Vite applications.
+1.  Push code to GitHub.
+2.  Import to [Vercel](https://vercel.com).
+3.  Set `VITE_API_BASE_URL` to your Render URL.
 
-1.  **Push to GitHub**: Initialize a git repo and push your code to GitHub.
-2.  **Connect Vercel**: Import your repository into [Vercel](https://vercel.com).
-3.  **Environment Variables**:
-    *   Set `VITE_API_BASE_URL` to your Backend URL.
-4.  **Deploy**: Vercel will automatically build and provide a `https://attend-ai.vercel.app` link.
+## 2. Database (Neon.tech)
+1.  Sign up at [Neon](https://neon.tech).
+2.  Create a project and get your `DATABASE_URL`.
 
-## 2. Backend Deployment (Railway.app)
-Railway is easy for FastAPI + PostgreSQL.
+## 3. Backend (Hugging Face Spaces) - *100% Free*
+Hugging Face Spaces is great for AI/FastAPI apps and doesn't require a credit card.
 
-1.  **Create New Project**: Select "Deploy from GitHub repo".
-2.  **Add Database**: Add a "PostgreSQL" service in the same project. Railway will automatically inject the `DATABASE_URL`.
-3.  **Environment Variables**:
-    *   `SECRET_KEY`: A long random string.
-    *   `SIMILARITY_THRESHOLD`: `0.40`
-    *   `FACE_IMAGES_DIR`: `/app/data/face_images`
-4.  **Networking**: Set the port to `8000`.
+1.  Go to [Hugging Face](https://huggingface.co/new-space).
+2.  **Space name**: `attend-backend`
+3.  **SDK**: Select **Docker**.
+4.  **Template**: Select **Blank**.
+5.  **Visibility**: Public (to allow frontend access).
+6.  **Settings (Secrets)**:
+    *   `DATABASE_URL`: `postgresql://neondb_owner:npg_p4EsOJgTN1Ym@ep-rapid-cherry-adi1qp8k-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require`
+    *   `SECRET_KEY`: `AttendAI_Secure_2026_Key`
+7.  **Push code**: Push your repo. Hugging Face will use the `backend/Dockerfile` I created.
+
+## 4. Final Connection
+After Hugging Face deploys, copy its URL (e.g., `https://abdulahad086-attend-backend.hf.space`).
+1.  Go to **Vercel** Settings.
+2.  Update `VITE_API_BASE_URL` with this URL.
+3.  **Redeploy** the frontend.
 
 ## 3. Database Migration
 In local, we use `create_tables()` on startup. In production:
