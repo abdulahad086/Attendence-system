@@ -88,6 +88,11 @@ app.include_router(settings_router, prefix="/api/settings", tags=["Settings"])
 app.include_router(billing_router)
 
 
+@app.get("/")
+def read_root():
+    return {"message": "AttendAI Backend is Running!", "docs": "/docs", "health": "/health"}
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["System"])
