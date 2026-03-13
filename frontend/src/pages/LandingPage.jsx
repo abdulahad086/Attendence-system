@@ -70,7 +70,7 @@ export default function LandingPage() {
           <div className="relative lg:block animate-fade-in delay-200">
             <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl shadow-primary-900/40 border border-surface-700">
               <img 
-                src="/Users/mac/.gemini/antigravity/brain/931321e9-fcdd-44f5-af33-6c7d4361b085/saas_hero_image_1773314770875.png" 
+                src="/assets/saas_hero_image_1773314770875.png" 
                 alt="AI Face Recognition" 
                 className="w-full h-auto object-cover"
               />
@@ -131,7 +131,7 @@ export default function LandingPage() {
           <div className="mt-32 grid lg:grid-cols-2 gap-16 items-center">
              <div className="rounded-3xl overflow-hidden border border-surface-700 shadow-2xl">
                 <img 
-                  src="/Users/mac/.gemini/antigravity/brain/931321e9-fcdd-44f5-af33-6c7d4361b085/saas_feature_analytics_1773314789612.png" 
+                  src="/assets/saas_feature_analytics_1773314789612.png" 
                   alt="Analytics Dashboard" 
                 />
              </div>
