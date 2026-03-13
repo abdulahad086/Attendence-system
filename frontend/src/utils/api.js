@@ -1,7 +1,9 @@
 import axios from 'axios'
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_URL ? `${BASE_URL}/api` : '/api',
   timeout: 30000,
 })
 
@@ -43,7 +45,10 @@ export const getDailyReport = (date) =>
 export const getAttendanceTrend = () => api.get('/attendance/trend')
 
 export const exportCSV = (date) => {
-  window.open(`http://localhost:8000/api/attendance/export?date=${date}`, '_blank')
+  const url = BASE_URL 
+    ? `${BASE_URL}/api/attendance/export?date=${date}`
+    : `http://localhost:8000/api/attendance/export?date=${date}`
+  window.open(url, '_blank')
 }
 
 // ── Health ─────────────────────────────────────────────────────────────────

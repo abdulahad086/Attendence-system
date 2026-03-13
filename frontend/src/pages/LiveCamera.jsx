@@ -2,7 +2,16 @@ import React, { useRef, useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Video, VideoOff, Zap, User, AlertCircle } from 'lucide-react'
 
-const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/camera`
+const getWsUrl = () => {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (apiBaseUrl) {
+    // Convert https://... to wss://...
+    return apiBaseUrl.replace(/^http/, 'ws') + '/ws/camera'
+  }
+  return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/camera`
+}
+
+const WS_URL = getWsUrl()
 
 export default function LiveCamera() {
   const videoRef   = useRef(null)
