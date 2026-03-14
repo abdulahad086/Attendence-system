@@ -20,10 +20,13 @@ WORKDIR /app
 
 # Copy requirements from backend and install
 COPY --chown=user:user backend/requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt requests
 
-# Copy the backend code
-COPY --chown=user:user backend/ .
+# Copy the entire project for scripts
+COPY --chown=user:user . .
+
+# Download face detection models
+RUN python scripts/download_models.py
 
 # Create writable directories
 RUN mkdir -p logs data/face_images
