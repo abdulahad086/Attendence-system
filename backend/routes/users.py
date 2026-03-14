@@ -108,6 +108,14 @@ async def register_user(
     # Generate and store embeddings
     stored = register_user_embeddings(db, user.id, cv2_images)
 
+    if stored == 0:
+        db.delete(user)
+        db.commit()
+        raise HTTPException(
+            status_code=422,
+            detail="No faces detected in the provided images. Please try again with clearer photos."
+        )
+
     return {
         "user_id": user.id,
         "name": user.name,
