@@ -1,30 +1,35 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { Video, VideoOff, Zap, User, AlertCircle } from 'lucide-react'
+import { Video, VideoOff, Zap, User, AlertCircle, RefreshCw } from 'lucide-react'
 
 const getWsUrl = () => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
   if (apiBaseUrl) {
-    // Convert https://... to wss://...
-    return apiBaseUrl.replace(/^http/, 'ws') + '/ws/camera'
+    // Strip trailing slash, then convert https→wss / http→ws
+    return apiBaseUrl.replace(/\/$/, '').replace(/^http/, 'ws') + '/ws/camera'
   }
   return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/camera`
 }
 
 const WS_URL = getWsUrl()
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 3000
 
 export default function LiveCamera() {
-  const videoRef   = useRef(null)
-  const canvasRef  = useRef(null)
-  const wsRef      = useRef(null)
+  const videoRef    = useRef(null)
+  const canvasRef   = useRef(null)
+  const wsRef       = useRef(null)
   const intervalRef = useRef(null)
-  const streamRef  = useRef(null)
+  const streamRef   = useRef(null)
+  const retryCount  = useRef(0)
+  const retryTimer  = useRef(null)
 
-  const [active, setActive]     = useState(false)
-  const [results, setResults]   = useState([])
-  const [fps, setFps]           = useState(0)
-  const [error, setError]       = useState(null)
-  const [frameCount, setFc]     = useState(0)
+  const [active, setActive]   = useState(false)
+  const [results, setResults] = useState([])
+  const [fps, setFps]         = useState(0)
+  const [error, setError]     = useState(null)
+  const [frameCount, setFc]   = useState(0)
+  const [retrying, setRetrying] = useState(false)
 
   // FPS counter
   useEffect(() => {
@@ -35,9 +40,9 @@ export default function LiveCamera() {
   }, [])
 
   const sendFrame = useCallback(() => {
-    const video = videoRef.current
+    const video  = videoRef.current
     const canvas = canvasRef.current
-    const ws = wsRef.current
+    const ws     = wsRef.current
     if (!video || !canvas || !ws || ws.readyState !== WebSocket.OPEN) return
 
     canvas.width  = video.videoWidth  || 640
@@ -45,80 +50,109 @@ export default function LiveCamera() {
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0)
     const b64 = canvas.toDataURL('image/jpeg', 0.7)
-
     ws.send(JSON.stringify({ frame: b64 }))
     setFc(c => c + 1)
   }, [])
 
-  const startCamera = useCallback(async () => {
-    setError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } 
-      })
-      streamRef.current = stream
-      videoRef.current.srcObject = stream
-      await videoRef.current.play()
-
-      // Open WebSocket
-      const token = localStorage.getItem('auth_token') || ''
-      const ws = new WebSocket(`${WS_URL}?token=${token}`)
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        setActive(true)
-        toast.success('Camera connected')
-        // Send a frame every 500ms (2fps) to avoid overloading CPU
-        intervalRef.current = setInterval(sendFrame, 500)
-      }
-
-      ws.onmessage = (e) => {
-        try {
-          const data = JSON.parse(e.data)
-          if (data.results) {
-            setResults(data.results)
-            // Overlay the annotated frame if provided
-            if (data.annotated_frame && canvasRef.current) {
-              const img = new Image()
-              img.onload = () => {
-                const ctx = canvasRef.current.getContext('2d')
-                canvasRef.current.width = img.width
-                canvasRef.current.height = img.height
-                ctx.drawImage(img, 0, 0)
-              }
-              img.src = data.annotated_frame
-            }
-          }
-        } catch { /* ignore */ }
-      }
-
-      ws.onerror = () => {
-        setError('WebSocket connection failed. Is the backend running?')
-        stopCamera()
-      }
-
-      ws.onclose = () => {
-        if (active) toast('Camera disconnected', { icon: '📷' })
-        setActive(false)
-      }
-    } catch (err) {
-      setError(`Camera error: ${err.message}`)
-    }
-  }, [sendFrame, active])
-
-  const stopCamera = useCallback(() => {
+  const stopCamera = useCallback((silent = false) => {
     clearInterval(intervalRef.current)
+    clearTimeout(retryTimer.current)
     if (wsRef.current) wsRef.current.close()
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
     setActive(false)
     setResults([])
+    setRetrying(false)
+    retryCount.current = 0
+    if (!silent) toast('Camera stopped', { icon: '📷' })
   }, [])
 
-  useEffect(() => () => stopCamera(), [stopCamera])
+  const connectWs = useCallback((stream) => {
+    const token = localStorage.getItem('auth_token') || ''
+    const ws = new WebSocket(`${WS_URL}?token=${token}`)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      retryCount.current = 0
+      setActive(true)
+      setError(null)
+      setRetrying(false)
+      toast.success('Camera connected')
+      intervalRef.current = setInterval(sendFrame, 500)
+    }
+
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        if (data.results) {
+          setResults(data.results)
+          if (data.annotated_frame && canvasRef.current) {
+            const img = new Image()
+            img.onload = () => {
+              const ctx = canvasRef.current?.getContext('2d')
+              if (!ctx) return
+              canvasRef.current.width  = img.width
+              canvasRef.current.height = img.height
+              ctx.drawImage(img, 0, 0)
+            }
+            img.src = data.annotated_frame
+          }
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    ws.onerror = () => {
+      clearInterval(intervalRef.current)
+    }
+
+    ws.onclose = () => {
+      clearInterval(intervalRef.current)
+      setActive(false)
+
+      if (retryCount.current < MAX_RETRIES && stream) {
+        retryCount.current += 1
+        setRetrying(true)
+        setError(`Connection lost. Reconnecting… (attempt ${retryCount.current}/${MAX_RETRIES})`)
+        retryTimer.current = setTimeout(() => connectWs(stream), RETRY_DELAY_MS)
+      } else if (retryCount.current >= MAX_RETRIES) {
+        setRetrying(false)
+        setError('Could not connect to the camera server after several attempts. The backend may still be waking up — please wait 30 seconds and try again.')
+      }
+    }
+  }, [sendFrame])
+
+  const startCamera = useCallback(async () => {
+    setError(null)
+    retryCount.current = 0
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+      })
+      streamRef.current = stream
+      videoRef.current.srcObject = stream
+      await videoRef.current.play()
+      connectWs(stream)
+    } catch (err) {
+      setError(`Camera error: ${err.message}`)
+    }
+  }, [connectWs])
+
+  const handleRetry = useCallback(() => {
+    retryCount.current = 0
+    setError(null)
+    setRetrying(false)
+    clearTimeout(retryTimer.current)
+    if (streamRef.current) {
+      connectWs(streamRef.current)
+    } else {
+      startCamera()
+    }
+  }, [connectWs, startCamera])
+
+  useEffect(() => () => stopCamera(true), [stopCamera])
 
   const statusColor = (s) => {
-    if (s === 'present') return 'text-primary-400'
-    if (s === 'late') return 'text-amber-400'
+    if (s === 'present')        return 'text-primary-400'
+    if (s === 'late')           return 'text-amber-400'
     if (s === 'already_marked') return 'text-indigo-400'
     return 'text-gray-400'
   }
@@ -139,7 +173,9 @@ export default function LiveCamera() {
             {!active && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <VideoOff size={48} className="text-gray-600" />
-                <p className="text-gray-500 text-sm">Camera inactive</p>
+                <p className="text-gray-500 text-sm">
+                  {retrying ? 'Reconnecting…' : 'Camera inactive'}
+                </p>
               </div>
             )}
             {active && (
@@ -157,11 +193,17 @@ export default function LiveCamera() {
 
           <div className="p-4 flex gap-3">
             <button
-              onClick={active ? stopCamera : startCamera}
+              onClick={active ? () => stopCamera() : startCamera}
               className={active ? 'btn-danger flex-1 justify-center' : 'btn-primary flex-1 justify-center'}
+              disabled={retrying}
             >
               {active ? (<><VideoOff size={15} /> Stop Camera</>) : (<><Video size={15} /> Start Camera</>)}
             </button>
+            {(error && !retrying) && (
+              <button onClick={handleRetry} className="btn-primary justify-center px-4">
+                <RefreshCw size={15} /> Retry
+              </button>
+            )}
           </div>
         </div>
 

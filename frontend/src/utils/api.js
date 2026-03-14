@@ -24,7 +24,7 @@ export const deleteUser = (id) => api.delete(`/users/${id}`)
 export const registerUser = (formData) =>
   api.post('/users/register', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
+    timeout: 180000, // 3 min — ArcFace on HuggingFace CPU can be slow
   })
 
 export const addUserImages = (userId, formData) =>

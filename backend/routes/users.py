@@ -147,6 +147,7 @@ def list_users(
     return result
 
 
+@router.get("/{user_id}")
 def get_user(
     user_id: int, 
     db: Session = Depends(get_db),
@@ -172,6 +173,7 @@ def get_user(
     }
 
 
+@router.delete("/{user_id}")
 def delete_user(
     user_id: int, 
     db: Session = Depends(get_db),
@@ -187,7 +189,7 @@ def delete_user(
     user.is_active = False
     db.commit()
     logger.info(f"Soft-deleted user id={user_id}")
-    return JSONResponse(status_code=204, content=None)
+    return JSONResponse(status_code=200, content={"message": "User removed successfully."})
 
 
 @router.post("/{user_id}/add-images")
