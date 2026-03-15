@@ -29,10 +29,13 @@ COPY --chown=user:user . .
 RUN python scripts/download_models.py
 
 # Create writable directories
-RUN mkdir -p logs data/face_images
+RUN mkdir -p backend/logs backend/data/face_images
 
 # Expose the port Hugging Face expects
 EXPOSE 7860
 
+# Switch workdir to backend for proper python imports
+WORKDIR /app/backend
+
 # Command to run the app
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
