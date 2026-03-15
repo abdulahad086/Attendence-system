@@ -95,6 +95,14 @@ export default function LiveCamera() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
+        if (data.error) {
+          setError(`Backend Error: ${data.error}`)
+          // Stop reconnect loop if it's an unrecoverable auth error
+          if (data.error.toLowerCase().includes('token')) {
+            retryCount.current = MAX_RETRIES
+          }
+          return
+        }
         if (data.results) {
           setResults(data.results)
           if (data.annotated_frame && canvasRef.current) {
