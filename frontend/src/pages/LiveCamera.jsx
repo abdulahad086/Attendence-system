@@ -3,11 +3,23 @@ import toast from 'react-hot-toast'
 import { Video, VideoOff, Zap, User, AlertCircle, RefreshCw } from 'lucide-react'
 
 const getWsUrl = () => {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+  let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  
   if (apiBaseUrl) {
-    // Strip trailing slash, then convert https→wss / http→ws
-    return apiBaseUrl.replace(/\/$/, '').replace(/^http/, 'ws') + '/ws/camera'
+    // Strip trailing slash
+    apiBaseUrl = apiBaseUrl.replace(/\/$/, '')
+    
+    // Convert http(s) to ws(s)
+    let wsUrl = apiBaseUrl.replace(/^http/, 'ws')
+    
+    // Force wss:// on production (prevent Mixed Content on Vercel)
+    if (wsUrl.startsWith('ws://') && !wsUrl.includes('localhost')) {
+      wsUrl = wsUrl.replace('ws://', 'wss://')
+    }
+    
+    return wsUrl + '/ws/camera'
   }
+  
   return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/camera`
 }
 

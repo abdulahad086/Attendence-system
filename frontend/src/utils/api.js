@@ -1,6 +1,11 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+let BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+// Enforce HTTPS to prevent Mixed Content errors on Vercel
+if (BASE_URL.startsWith('http://') && !BASE_URL.includes('localhost')) {
+  BASE_URL = BASE_URL.replace('http://', 'https://')
+}
+BASE_URL = BASE_URL.replace(/\/$/, '')
 
 const api = axios.create({
   baseURL: BASE_URL ? `${BASE_URL}/api` : '/api',
