@@ -71,58 +71,64 @@ async def register_user(
     - Accepts 1-10 face images (JPEG/PNG).
     - Creates the User row, then generates + stores embeddings.
     """
-    if not 1 <= len(images) <= 10:
-        raise HTTPException(
-            status_code=422,
-            detail="Provide between 1 and 10 face images.",
+    try:
+        if not 1 <= len(images) <= 10:
+            raise HTTPException(
+                status_code=422,
+                detail="Provide between 1 and 10 face images.",
+            )
+
+        # Check email uniqueness if provided
+        if email:
+            existing = db.query(User).filter(User.email == email).first()
+            if existing:
+                raise HTTPException(status_code=409, detail="Email already registered.")
+
+        # Create user row scoped to the organization
+        user = User(
+            name=name,
+            email=email,
+            department=department,
+            role=role,
+            organization_id=current_user.organization_id
         )
-
-    # Check email uniqueness if provided
-    if email:
-        existing = db.query(User).filter(User.email == email).first()
-        if existing:
-            raise HTTPException(status_code=409, detail="Email already registered.")
-
-    # Create user row scoped to the organization
-    user = User(
-        name=name,
-        email=email,
-        department=department,
-        role=role,
-        organization_id=current_user.organization_id
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    logger.info(f"Created user: id={user.id} name={name}")
-
-    # Convert uploads to numpy arrays
-    cv2_images = [_upload_to_cv2(img) for img in images]
-    cv2_images = [img for img in cv2_images if img is not None]
-
-    if not cv2_images:
-        db.delete(user)
+        db.add(user)
         db.commit()
-        raise HTTPException(status_code=422, detail="No valid images could be decoded.")
+        db.refresh(user)
+        logger.info(f"Created user: id={user.id} name={name}")
 
-    # Generate and store embeddings
-    stored = register_user_embeddings(db, user.id, cv2_images)
+        # Convert uploads to numpy arrays
+        cv2_images = [_upload_to_cv2(img) for img in images]
+        cv2_images = [img for img in cv2_images if img is not None]
 
-    if stored == 0:
-        db.delete(user)
-        db.commit()
-        raise HTTPException(
-            status_code=422,
-            detail="No faces detected in the provided images. Please try again with clearer photos."
-        )
+        if not cv2_images:
+            db.delete(user)
+            db.commit()
+            raise HTTPException(status_code=422, detail="No valid images could be decoded.")
 
-    return {
-        "user_id": user.id,
-        "name": user.name,
-        "department": user.department,
-        "embeddings_stored": stored,
-        "message": f"User {name!r} registered successfully.",
-    }
+        # Generate and store embeddings
+        stored = register_user_embeddings(db, user.id, cv2_images)
+
+        if stored == 0:
+            db.delete(user)
+            db.commit()
+            raise HTTPException(
+                status_code=422,
+                detail="No faces detected in the provided images. Please try again with clearer photos."
+            )
+
+        return {
+            "user_id": user.id,
+            "name": user.name,
+            "department": user.department,
+            "embeddings_stored": stored,
+            "message": f"User {name!r} registered successfully.",
+        }
+    except Exception as e:
+        import traceback
+        err_msg = traceback.format_exc()
+        logger.error(f"Registration Error: {err_msg}")
+        raise HTTPException(status_code=500, detail=f"Registration crashed: {str(e)}\n\n{err_msg}")
 
 
 @router.get("", response_model=list[UserOut])
