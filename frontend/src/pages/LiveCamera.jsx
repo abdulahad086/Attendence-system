@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { Video, VideoOff, Zap, User, AlertCircle, RefreshCw } from 'lucide-react'
 
 const getWsUrl = () => {
-  let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://abdulahad086-attendence-system.hf.space'
   
   if (apiBaseUrl) {
     // Strip trailing slash
