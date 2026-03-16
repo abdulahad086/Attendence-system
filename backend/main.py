@@ -88,7 +88,6 @@ app.include_router(attendance_router)
 app.include_router(settings_router, prefix="/api/settings", tags=["Settings"])
 app.include_router(billing_router)
 app.include_router(debug_router, prefix="/api")
-app.include_router(__import__("routes.debug").debug.router)
 
 
 @app.get("/")
